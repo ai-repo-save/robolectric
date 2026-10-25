@@ -8,7 +8,7 @@ The standalone core build uses Gradle's Java library and Maven publishing plugin
 
 - JDK 21: `/usr/lib/jvm/java-21-openjdk-amd64`.
 - Gradle wrapper 9.5.0; the single-module Java build does not require upstream's Android Gradle plugins or JDK 17 build-logic compilation.
-- HTTP proxy: `http://127.0.0.1:7891`, configurable with `--proxy-url` or `HTTP_PROXY`.
+- HTTP proxy defaults to `HTTP_PROXY` or `http://127.0.0.1:7891`; `--proxy-url` selects an explicit proxy. `--no-proxy` uses normal environment networking without adding Gradle proxy options.
 - `uv` with Python 3.12.
 - Official test SDK: `org.robolectric:android-all-instrumented:11-robolectric-6757853-i7`, already available locally. The compiler also resolves upstream's compile-only `org.robolectric:android-all:17-robolectric-15733970`.
 
@@ -23,6 +23,14 @@ uv run --script scripts/release-local.py \
 ```
 
 `--help` displays all options without starting a build. `--sdk-directory` selects the cached API 30 instrumented SDK directory.
+
+For environments without an explicit Gradle proxy, including GitHub Actions, run:
+
+```sh
+uv run --script scripts/release-local.py --no-proxy
+```
+
+`--no-proxy` and an explicitly supplied `--proxy-url` are mutually exclusive. `--no-proxy` bypasses the script's default proxy selection and adds no proxy properties or addresses to the Gradle command. It preserves the existing process environment.
 
 The script explicitly runs only `org.robolectric.StartupIdentityIntegrationTest`, then publishes `io.github.ai-repo-save.robolectric:robolectric:1.0.0` to:
 

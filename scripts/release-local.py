@@ -36,10 +36,16 @@ def main() -> int:
         type=Path,
         default=Path(os.environ.get("JAVA_HOME", "/usr/lib/jvm/java-21-openjdk-amd64")),
     )
-    parser.add_argument(
+    network = parser.add_mutually_exclusive_group()
+    network.add_argument(
         "--proxy-url",
         default=os.environ.get("HTTP_PROXY", "http://127.0.0.1:7891"),
         help="HTTP proxy URL used explicitly for Maven and Gradle downloads",
+    )
+    network.add_argument(
+        "--no-proxy",
+        action="store_true",
+        help="Use environment networking without injecting Gradle proxy options",
     )
     parser.add_argument(
         "--sdk-directory",
@@ -49,9 +55,17 @@ def main() -> int:
         help="Directory containing the official API 30 instrumented SDK JAR",
     )
     args = parser.parse_args()
-    proxy = urlparse(args.proxy_url)
-    if proxy.scheme != "http" or proxy.hostname is None or proxy.port is None:
-        parser.error("--proxy-url must be an http://host:port URL")
+    proxy_arguments = []
+    if not args.no_proxy:
+        proxy = urlparse(args.proxy_url)
+        if proxy.scheme != "http" or proxy.hostname is None or proxy.port is None:
+            parser.error("--proxy-url must be an http://host:port URL")
+        proxy_arguments = [
+            f"-Dhttp.proxyHost={proxy.hostname}",
+            f"-Dhttp.proxyPort={proxy.port}",
+            f"-Dhttps.proxyHost={proxy.hostname}",
+            f"-Dhttps.proxyPort={proxy.port}",
+        ]
     if not (args.java_home / "bin/java").is_file():
         parser.error("--java-home must contain bin/java")
     sdk = args.sdk_directory.resolve()
@@ -73,10 +87,7 @@ def main() -> int:
         "--no-daemon",
         "--console=plain",
         "--max-workers=2",
-        f"-Dhttp.proxyHost={proxy.hostname}",
-        f"-Dhttp.proxyPort={proxy.port}",
-        f"-Dhttps.proxyHost={proxy.hostname}",
-        f"-Dhttps.proxyPort={proxy.port}",
+        *proxy_arguments,
         f"-PidentitySdkDirectory={sdk}",
         ":robolectric:identityIntegrationTest",
         "--tests",
