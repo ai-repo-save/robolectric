@@ -1,44 +1,59 @@
-import org.robolectric.gradle.AndroidSdk
+import java.util.zip.ZipFile
+import org.gradle.api.artifacts.transform.TransformAction
+import org.gradle.api.artifacts.transform.TransformOutputs
+import org.gradle.api.artifacts.transform.TransformParameters
+import org.gradle.api.artifacts.type.ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE
 
 plugins {
-  alias(libs.plugins.robolectric.deployed.java.module)
-  alias(libs.plugins.robolectric.java.module)
+  `java-library`
+  `maven-publish`
+}
+
+java {
+  toolchain.languageVersion = JavaLanguageVersion.of(21)
+  sourceCompatibility = JavaVersion.VERSION_11
+  targetCompatibility = JavaVersion.VERSION_11
+  withSourcesJar()
+}
+
+abstract class AarClasses : TransformAction<TransformParameters.None> {
+  @get:InputArtifact abstract val input: Provider<FileSystemLocation>
+
+  override fun transform(outputs: TransformOutputs) {
+    ZipFile(input.get().asFile).use { archive ->
+      archive.getInputStream(archive.getEntry("classes.jar")).use { source ->
+        outputs.file("classes.jar").outputStream().use { target -> source.copyTo(target) }
+      }
+    }
+  }
 }
 
 dependencies {
+  registerTransform(AarClasses::class) {
+    from.attribute(ARTIFACT_TYPE_ATTRIBUTE, "aar")
+    to.attribute(ARTIFACT_TYPE_ATTRIBUTE, "jar")
+  }
+
   annotationProcessor(libs.auto.service)
-  annotationProcessor(libs.error.prone.core)
-
-  api(project(":annotations"))
-  api(project(":junit"))
-  api(project(":pluginapi"))
-  api(project(":resources"))
-  api(project(":sandbox"))
-  api(project(":utils"))
-  api(project(":utils:reflector"))
-  api(project(":plugins:maven-dependency-resolver"))
+  listOf(
+      "annotations", "junit", "pluginapi", "resources", "sandbox", "utils", "utils-reflector",
+      "plugins-maven-dependency-resolver", "shadows-framework",
+    )
+    .forEach { api("org.robolectric:$it:4.17") }
   api(libs.javax.inject)
-  compileOnly(libs.auto.service.annotations)
   api(libs.javax.annotation.api)
-
-  // We need to have shadows-framework.jar on the runtime system classpath so ServiceLoader
-  //   can find its META-INF/services/org.robolectric.shadows.ShadowAdapter.
-  api(project(":shadows:framework"))
-
-  implementation(libs.conscrypt.openjdk.uber)
-  implementation(libs.snakeyaml)
-
   api(platform(libs.bc.jdk18on.bom))
   api(libs.bcprov.jdk18on)
-  compileOnly(libs.findbugs.jsr305)
-
-  compileOnly(AndroidSdk.MAX_SDK.coordinates)
-  compileOnly(libs.junit4)
-  compileOnly(libs.androidx.annotation)
-
   api(variantOf(libs.androidx.test.monitor) { artifactType("aar") })
+  implementation(libs.conscrypt.openjdk.uber)
+  implementation(libs.snakeyaml)
   implementation(variantOf(libs.androidx.test.espresso.idling.resource) { artifactType("aar") })
   implementation(variantOf(libs.test.parameter.injector) { artifactType("jar") })
+  compileOnly(libs.auto.service.annotations)
+  compileOnly(libs.findbugs.jsr305)
+  compileOnly(libs.junit4)
+  compileOnly(libs.androidx.annotation)
+  compileOnly("org.robolectric:android-all:17-robolectric-15733970")
 
   testImplementation(libs.androidx.annotation)
   testImplementation(libs.junit4)
@@ -52,28 +67,94 @@ dependencies {
   testImplementation(variantOf(libs.androidx.test.runner) { artifactType("aar") })
   testImplementation(libs.guava)
   testImplementation(libs.guava.testlib)
-  testCompileOnly(AndroidSdk.MAX_SDK.coordinates) // compile against latest Android SDK
-  testRuntimeOnly(androidStubsJar())
+  testCompileOnly("org.robolectric:android-all:17-robolectric-15733970")
+  testRuntimeOnly(files("${System.getenv("ANDROID_HOME")}/platforms/android-${libs.versions.androidstubs.get()}/android.jar"))
 }
 
-fun androidStubsJar(): ConfigurableFileCollection {
-  val androidStubsVersion = libs.versions.androidstubs.get()
-  if ("ANDROID_HOME" !in System.getenv()) {
-    throw GradleException("Environment variable ANDROID_HOME is not set.")
+configurations.configureEach {
+  if (name.endsWith("Classpath")) {
+    attributes.attribute(ARTIFACT_TYPE_ATTRIBUTE, "jar")
   }
-
-  val androidJarPath =
-    "${System.getenv("ANDROID_HOME")}/platforms/android-$androidStubsVersion/android.jar"
-  val androidJar = file(androidJarPath)
-  if (!androidJar.exists()) {
-    throw GradleException(
-      "android.jar $androidStubsVersion not found at $androidJarPath. Download it through Android SDK Manager, or install the `Android SDK Command-line tools` and run `sdkmanager \"platforms;android-$androidStubsVersion\"`."
-    )
-  }
-
-  return files(androidJarPath)
 }
 
-tasks.withType<Test>().configureEach {
-  systemProperty("robolectric.enableFrameInfoVsyncOffsetFix", "true")
+listOf("apiElements", "runtimeElements").forEach { variant ->
+  configurations.named(variant) {
+    outgoing.capability("${project.group}:robolectric:${project.version}")
+    outgoing.capability("org.robolectric:robolectric:4.17")
+  }
+}
+
+tasks.withType<JavaCompile>().configureEach { options.encoding = "UTF-8" }
+tasks.withType<Jar>().configureEach {
+  isPreserveFileTimestamps = false
+  isReproducibleFileOrder = true
+  manifest.attributes("Implementation-Version" to project.version, "Robolectric-Upstream-Version" to "4.17")
+}
+
+publishing {
+  publications {
+    create<MavenPublication>("runtimeCore") {
+      from(components["java"])
+      pom {
+        name = "Robolectric Runtime Core"
+        description = "Robolectric 4.17 core with public application startup identity configuration"
+        url = "https://github.com/robolectric/robolectric"
+        licenses {
+          license {
+            name = "MIT License"
+            url = "https://opensource.org/licenses/MIT"
+          }
+        }
+        scm {
+          url = "https://github.com/robolectric/robolectric"
+          tag = "0706415db828e1bdcf4f0c820784fa760d0185a2"
+        }
+      }
+    }
+  }
+  repositories {
+    maven {
+      name = "runtimeLocal"
+      url = rootProject.layout.buildDirectory.dir("repository").get().asFile.toURI()
+    }
+  }
+}
+
+val identityIntegration = sourceSets.create("identityIntegration") {
+  compileClasspath += sourceSets.main.get().output
+  runtimeClasspath += sourceSets.main.get().output
+}
+configurations[identityIntegration.implementationConfigurationName].extendsFrom(configurations.implementation.get())
+configurations[identityIntegration.runtimeOnlyConfigurationName].extendsFrom(configurations.runtimeOnly.get())
+dependencies {
+  add(identityIntegration.implementationConfigurationName, libs.junit4)
+  add(identityIntegration.implementationConfigurationName, "org.robolectric:android-all:11-robolectric-6757853")
+}
+
+val identityIntegrationTest by tasks.registering(Test::class) {
+  description = "Explicit startup identity integration test; not part of check or test."
+  group = "verification"
+  testClassesDirs = identityIntegration.output.classesDirs
+  classpath = identityIntegration.runtimeClasspath
+  useJUnit()
+  maxHeapSize = "2g"
+  systemProperty("robolectric.offline", "true")
+  systemProperty(
+    "robolectric.dependency.dir",
+    providers.gradleProperty("identitySdkDirectory").getOrElse(
+      "${System.getProperty("user.home")}/.m2/repository/org/robolectric/android-all-instrumented/11-robolectric-6757853-i7"
+    ),
+  )
+  jvmArgs(
+    "--add-opens=java.base/java.lang=ALL-UNNAMED",
+    "--add-opens=java.base/java.util=ALL-UNNAMED",
+    "--add-opens=java.base/java.io=ALL-UNNAMED",
+    "--add-opens=java.base/java.net=ALL-UNNAMED",
+    "--add-opens=java.base/java.security=ALL-UNNAMED",
+    "--add-opens=java.base/java.text=ALL-UNNAMED",
+    "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED",
+    "--add-opens=java.desktop/java.awt.font=ALL-UNNAMED",
+    "--add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+  )
+  testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
 }

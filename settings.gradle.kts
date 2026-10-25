@@ -1,70 +1,17 @@
 pluginManagement {
-  includeBuild("build-logic")
   repositories {
     gradlePluginPortal()
-    google()
     mavenCentral()
   }
 }
 
 dependencyResolutionManagement {
   repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS
-
   repositories {
     google()
     mavenCentral()
   }
 }
 
-rootProject.name = "robolectric"
-
-include(
-  ":annotations",
-  ":errorprone",
-  ":integration_tests:androidx",
-  ":integration_tests:androidx_test",
-  ":integration_tests:composeui",
-  ":integration_tests:ctesque",
-  ":integration_tests:dependency-on-stubs",
-  ":integration_tests:firebase",
-  ":integration_tests:jacoco-offline",
-  ":integration_tests:junit-vintage-engine",
-  ":integration_tests:kotlin",
-  ":integration_tests:libphonenumber",
-  ":integration_tests:memoryleaks",
-  ":integration_tests:mockito",
-  ":integration_tests:mockito-experimental",
-  ":integration_tests:mockito-kotlin",
-  ":integration_tests:mockk",
-  ":integration_tests:nativegraphics",
-  ":integration_tests:play_services",
-  ":integration_tests:powermock",
-  ":integration_tests:rap",
-  ":integration_tests:rap-kotlin",
-  ":integration_tests:roborazzi",
-  ":integration_tests:room",
-  ":integration_tests:sdkcompat",
-  ":integration_tests:securityproviders",
-  ":integration_tests:simulator:app",
-  ":integration_tests:simulator:test",
-  ":integration_tests:sparsearray",
-  ":integration_tests:testparameterinjector",
-  ":integration_tests:versioning",
-  ":junit",
-  ":nativeruntime",
-  ":pluginapi",
-  ":plugins:maven-dependency-resolver",
-  ":preinstrumented",
-  ":processor",
-  ":resources",
-  ":robolectric",
-  ":sandbox",
-  ":shadowapi",
-  ":shadows:framework",
-  ":shadows:httpclient",
-  ":simulator",
-  ":simulator-gradle-plugin",
-  ":testapp",
-  ":utils",
-  ":utils:reflector",
-)
+rootProject.name = "robolectric-runtime"
+include(":robolectric")

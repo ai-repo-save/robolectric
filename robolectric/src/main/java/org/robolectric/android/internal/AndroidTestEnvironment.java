@@ -341,6 +341,12 @@ public class AndroidTestEnvironment implements TestEnvironment {
 
     ApplicationInfo applicationInfo = parsedPackage.applicationInfo;
     applicationInfo.uid = Process.myUid();
+    String configuredProcessName = System.getProperty("robolectric.applicationProcessName");
+    if (configuredProcessName != null) {
+      Preconditions.checkArgument(
+          !configuredProcessName.isBlank(), "robolectric.applicationProcessName must be nonblank");
+      applicationInfo.processName = configuredProcessName;
+    }
     Class<? extends Application> applicationClass =
         getApplicationClass(appManifest, config, applicationInfo);
     applicationInfo.className = applicationClass.getName();
@@ -384,7 +390,8 @@ public class AndroidTestEnvironment implements TestEnvironment {
     final Object appBindData = ReflectionHelpers.callConstructor(appBindDataClass);
     final AppBindDataReflector appBindDataReflector =
         reflector(AppBindDataReflector.class, appBindData);
-    appBindDataReflector.setProcessName(parsedPackage.packageName);
+    appBindDataReflector.setProcessName(
+        configuredProcessName != null ? configuredProcessName : parsedPackage.packageName);
     appBindDataReflector.setAppInfo(applicationInfo);
     activityThreadReflector.setBoundApplication(appBindData);
 
@@ -475,7 +482,11 @@ public class AndroidTestEnvironment implements TestEnvironment {
     if (packageFile != null) {
       parsedPackage = ShadowPackageParser.callParsePackage(packageFile);
     } else {
-      parsedPackage = new Package("org.robolectric.default");
+      String packageName =
+          System.getProperty("robolectric.applicationPackageName", "org.robolectric.default");
+      Preconditions.checkArgument(
+          !packageName.isBlank(), "robolectric.applicationPackageName must be nonblank");
+      parsedPackage = new Package(packageName);
     }
     if (parsedPackage != null && parsedPackage.applicationInfo != null) {
       parsedPackage.applicationInfo.targetSdkVersion = appManifest.getTargetSdkVersion();
