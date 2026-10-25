@@ -11,6 +11,7 @@ import os
 import shutil
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -108,8 +109,21 @@ def main() -> int:
         records.append(
             {"file": artifact.name, "bytes": artifact.stat().st_size, "sha256": sha}
         )
+    source_repository = ROOT.as_uri()
+    namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
+    pom = ET.parse(artifact_directory / "robolectric-1.0.0.pom").getroot()
+    expected_scm = {
+        "url": source_repository,
+        "connection": f"scm:git:{source_repository}",
+        "tag": commit,
+    }
+    for field, expected in expected_scm.items():
+        actual = pom.findtext(f"m:scm/m:{field}", namespaces=namespace)
+        if actual != expected:
+            raise RuntimeError(f"Published POM SCM {field} differs from release source")
     provenance = {
         "coordinates": COORDINATES,
+        "sourceRepository": source_repository,
         "upstreamRepository": "https://github.com/robolectric/robolectric.git",
         "upstreamCommit": UPSTREAM,
         "sourceCommit": commit,

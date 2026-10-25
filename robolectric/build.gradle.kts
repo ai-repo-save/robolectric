@@ -91,6 +91,20 @@ tasks.withType<Jar>().configureEach {
   manifest.attributes("Implementation-Version" to project.version, "Robolectric-Upstream-Version" to "4.17")
 }
 
+val sourceRepository = rootProject.projectDir.toPath().toRealPath().toUri().toString().removeSuffix("/")
+val sourceStatus = providers.exec {
+  workingDir(rootProject.projectDir)
+  commandLine("git", "status", "--porcelain")
+}.standardOutput.asText
+val sourceCommit = providers.exec {
+  workingDir(rootProject.projectDir)
+  commandLine("git", "rev-parse", "HEAD")
+}.standardOutput.asText
+val cleanSourceCommit = sourceStatus.zip(sourceCommit) { status, commit ->
+  check(status.isBlank()) { "Commit source changes before generating publication metadata" }
+  commit.trim()
+}
+
 publishing {
   publications {
     create<MavenPublication>("runtimeCore") {
@@ -98,7 +112,10 @@ publishing {
       pom {
         name = "Robolectric Runtime Core"
         description = "Robolectric 4.17 core with public application startup identity configuration"
-        url = "https://github.com/robolectric/robolectric"
+        url = sourceRepository
+        properties.put("robolectric.upstream.repository", "https://github.com/robolectric/robolectric.git")
+        properties.put("robolectric.upstream.commit", "0706415db828e1bdcf4f0c820784fa760d0185a2")
+        properties.put("robolectric.upstream.version", "4.17")
         licenses {
           license {
             name = "MIT License"
@@ -106,8 +123,9 @@ publishing {
           }
         }
         scm {
-          url = "https://github.com/robolectric/robolectric"
-          tag = "0706415db828e1bdcf4f0c820784fa760d0185a2"
+          url = sourceRepository
+          connection = "scm:git:$sourceRepository"
+          tag.set(cleanSourceCommit)
         }
       }
     }
