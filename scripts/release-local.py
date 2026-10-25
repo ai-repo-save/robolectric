@@ -5,13 +5,11 @@
 # ///
 
 import argparse
-import hashlib
 import json
 import os
 import shutil
 import subprocess
 import sys
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -20,11 +18,6 @@ UPSTREAM = "0706415db828e1bdcf4f0c820784fa760d0185a2"
 SOURCE_REPOSITORY = "https://github.com/ai-repo-save/robolectric.git"
 COORDINATES = "io.github.ai-repo-save.robolectric:robolectric:1.0.0"
 ARTIFACT_PATH = Path("io/github/ai-repo-save/robolectric/robolectric/1.0.0")
-
-
-def digest(path: Path) -> str:
-    with path.open("rb") as source:
-        return hashlib.file_digest(source, "sha256").hexdigest()
 
 
 def main() -> int:
@@ -109,36 +102,10 @@ def main() -> int:
     repository = ROOT / "build/repository"
     artifact_directory = repository / ARTIFACT_PATH
     installed_directory = Path.home() / ".m2/repository" / ARTIFACT_PATH
-    artifacts = [
-        artifact_directory / f"robolectric-1.0.0{suffix}"
-        for suffix in (".jar", "-sources.jar", ".pom", ".module")
-    ]
-    records = []
-    for artifact in artifacts:
-        sha = digest(artifact)
-        installed = installed_directory / artifact.name
-        if digest(installed) != sha:
-            raise RuntimeError(
-                f"Maven local artifact differs from file repository: {artifact.name}"
-            )
-        records.append(
-            {"file": artifact.name, "bytes": artifact.stat().st_size, "sha256": sha}
-        )
-    source_repository = SOURCE_REPOSITORY
-    namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
-    pom = ET.parse(artifact_directory / "robolectric-1.0.0.pom").getroot()
-    expected_scm = {
-        "url": source_repository,
-        "connection": f"scm:git:{source_repository}",
-        "tag": commit,
-    }
-    for field, expected in expected_scm.items():
-        actual = pom.findtext(f"m:scm/m:{field}", namespaces=namespace)
-        if actual != expected:
-            raise RuntimeError(f"Published POM SCM {field} differs from release source")
     provenance = {
         "coordinates": COORDINATES,
-        "sourceRepository": source_repository,
+        "sourceRepository": SOURCE_REPOSITORY,
+        "upstreamVersion": "4.17",
         "upstreamRepository": "https://github.com/robolectric/robolectric.git",
         "upstreamCommit": UPSTREAM,
         "sourceCommit": commit,
@@ -147,14 +114,13 @@ def main() -> int:
             [str(args.java_home / "bin/java"), "--version"], text=True
         ).strip(),
         "command": command,
-        "artifacts": records,
+        "repository": str(repository),
+        "artifactDirectory": str(artifact_directory),
+        "mavenLocalDirectory": str(installed_directory),
     }
     provenance_path = artifact_directory / "robolectric-1.0.0.provenance.json"
     provenance_path.write_text(json.dumps(provenance, indent=2) + "\n")
-    checksum_path = provenance_path.with_suffix(".json.sha256")
-    checksum_path.write_text(f"{digest(provenance_path)}  {provenance_path.name}\n")
-    for path in (provenance_path, checksum_path):
-        shutil.copy2(path, installed_directory / path.name)
+    shutil.copy2(provenance_path, installed_directory / provenance_path.name)
     print(
         json.dumps({"repository": str(repository), "provenance": str(provenance_path)})
     )

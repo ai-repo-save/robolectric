@@ -39,7 +39,7 @@ The script explicitly runs only `org.robolectric.StartupIdentityIntegrationTest`
 
 The version directory contains the main JAR, sources JAR, POM, Gradle module metadata and a `robolectric-1.0.0.provenance.json` receipt. The POM SCM identifies the public fork through `scm:git:https://github.com/ai-repo-save/robolectric.git` and the clean checkout's actual commit, resolved when generating publication metadata. The upstream repository, baseline commit and version are separate POM properties; they do not identify the fork source.
 
-The provenance receipt records the same HTTPS source repository and fork commit, the upstream baseline, toolchain, build command, artifact sizes and SHA-256 values. Consumers check out that exact commit from the public fork. The script verifies the published POM SCM against the release source, verifies the Maven-local artifacts against the file repository and copies the provenance receipt and its checksum to both destinations.
+The provenance receipt records the HTTPS source repository and actual Git commit, GAV, upstream version and baseline, toolchain, build command and publication paths. Consumers check out that exact commit from the public fork. The script uses Gradle's publication tasks and exit status, then stores the receipt in both publication directories. Gradle owns dependency download validation and standard publication checksums.
 
 The focused integration test is not a dependency of `test` or `check`. To run it independently:
 
