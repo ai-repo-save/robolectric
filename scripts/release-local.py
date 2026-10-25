@@ -50,9 +50,7 @@ def main() -> int:
     parser.add_argument(
         "--sdk-directory",
         type=Path,
-        default=Path.home()
-        / ".m2/repository/org/robolectric/android-all-instrumented/11-robolectric-6757853-i7",
-        help="Directory containing the official API 30 instrumented SDK JAR",
+        help="Existing API 30 instrumented SDK directory (default: resolve through Gradle)",
     )
     args = parser.parse_args()
     proxy_arguments = []
@@ -68,11 +66,16 @@ def main() -> int:
         ]
     if not (args.java_home / "bin/java").is_file():
         parser.error("--java-home must contain bin/java")
-    sdk = args.sdk_directory.resolve()
-    if not (sdk / "android-all-instrumented-11-robolectric-6757853-i7.jar").is_file():
-        parser.error(
-            "--sdk-directory must contain the official API 30 instrumented SDK JAR"
-        )
+    sdk_arguments = []
+    if args.sdk_directory is not None:
+        sdk = args.sdk_directory.resolve()
+        if not (
+            sdk / "android-all-instrumented-11-robolectric-6757853-i7.jar"
+        ).is_file():
+            parser.error(
+                "--sdk-directory must contain the official API 30 instrumented SDK JAR"
+            )
+        sdk_arguments = [f"-PidentitySdkDirectory={sdk}"]
     status = subprocess.check_output(
         ["git", "status", "--porcelain"], cwd=ROOT, text=True
     )
@@ -88,7 +91,7 @@ def main() -> int:
         "--console=plain",
         "--max-workers=2",
         *proxy_arguments,
-        f"-PidentitySdkDirectory={sdk}",
+        *sdk_arguments,
         ":robolectric:identityIntegrationTest",
         "--tests",
         "org.robolectric.StartupIdentityIntegrationTest",

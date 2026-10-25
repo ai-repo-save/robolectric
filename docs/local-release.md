@@ -10,7 +10,7 @@ The standalone core build uses Gradle's Java library and Maven publishing plugin
 - Gradle wrapper 9.5.0; the single-module Java build does not require upstream's Android Gradle plugins or JDK 17 build-logic compilation.
 - HTTP proxy defaults to `HTTP_PROXY` or `http://127.0.0.1:7891`; `--proxy-url` selects an explicit proxy. `--no-proxy` uses normal environment networking without adding Gradle proxy options.
 - `uv` with Python 3.12.
-- Official test SDK: `org.robolectric:android-all-instrumented:11-robolectric-6757853-i7`, already available locally. The compiler also resolves upstream's compile-only `org.robolectric:android-all:17-robolectric-15733970`.
+- Official test SDK: `org.robolectric:android-all-instrumented:11-robolectric-6757853-i7`, resolved through Gradle by default. The compiler also resolves upstream's compile-only `org.robolectric:android-all:17-robolectric-15733970`.
 
 ## Release
 
@@ -22,7 +22,7 @@ uv run --script scripts/release-local.py \
   --proxy-url http://127.0.0.1:7891
 ```
 
-`--help` displays all options without starting a build. `--sdk-directory` selects the cached API 30 instrumented SDK directory.
+`--help` displays all options without starting a build. By default, the script delegates official API 30 SDK resolution to Gradle. The optional `--sdk-directory` validates an existing SDK directory and passes it as an explicit `identitySdkDirectory` override; the script does not require or create a local Maven SDK installation.
 
 For environments without an explicit Gradle proxy, including GitHub Actions, run:
 
