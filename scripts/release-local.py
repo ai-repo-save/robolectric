@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 UPSTREAM = "0706415db828e1bdcf4f0c820784fa760d0185a2"
+SOURCE_REPOSITORY = "https://github.com/ai-repo-save/robolectric.git"
 COORDINATES = "io.github.ai-repo-save.robolectric:robolectric:1.0.0"
 ARTIFACT_PATH = Path("io/github/ai-repo-save/robolectric/robolectric/1.0.0")
 
@@ -109,7 +110,7 @@ def main() -> int:
         records.append(
             {"file": artifact.name, "bytes": artifact.stat().st_size, "sha256": sha}
         )
-    source_repository = ROOT.as_uri()
+    source_repository = SOURCE_REPOSITORY
     namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
     pom = ET.parse(artifact_directory / "robolectric-1.0.0.pom").getroot()
     expected_scm = {

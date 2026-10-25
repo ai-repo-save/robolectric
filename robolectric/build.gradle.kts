@@ -91,7 +91,7 @@ tasks.withType<Jar>().configureEach {
   manifest.attributes("Implementation-Version" to project.version, "Robolectric-Upstream-Version" to "4.17")
 }
 
-val sourceRepository = rootProject.projectDir.toPath().toRealPath().toUri().toString().removeSuffix("/")
+val sourceRepository = "https://github.com/ai-repo-save/robolectric.git"
 val sourceStatus = providers.exec {
   workingDir(rootProject.projectDir)
   commandLine("git", "status", "--porcelain")
@@ -112,7 +112,7 @@ publishing {
       pom {
         name = "Robolectric Runtime Core"
         description = "Robolectric 4.17 core with public application startup identity configuration"
-        url = sourceRepository
+        url = sourceRepository.removeSuffix(".git")
         properties.put("robolectric.upstream.repository", "https://github.com/robolectric/robolectric.git")
         properties.put("robolectric.upstream.commit", "0706415db828e1bdcf4f0c820784fa760d0185a2")
         properties.put("robolectric.upstream.version", "4.17")
@@ -144,7 +144,12 @@ val identityIntegration = sourceSets.create("identityIntegration") {
 }
 configurations[identityIntegration.implementationConfigurationName].extendsFrom(configurations.implementation.get())
 configurations[identityIntegration.runtimeOnlyConfigurationName].extendsFrom(configurations.runtimeOnly.get())
+val identitySdk = configurations.create("identitySdk") {
+  isCanBeConsumed = false
+  isTransitive = false
+}
 dependencies {
+  add(identitySdk.name, "org.robolectric:android-all-instrumented:11-robolectric-6757853-i7")
   add(identityIntegration.implementationConfigurationName, libs.junit4)
   add(identityIntegration.implementationConfigurationName, "org.robolectric:android-all:11-robolectric-6757853")
 }
@@ -159,9 +164,9 @@ val identityIntegrationTest by tasks.registering(Test::class) {
   systemProperty("robolectric.offline", "true")
   systemProperty(
     "robolectric.dependency.dir",
-    providers.gradleProperty("identitySdkDirectory").getOrElse(
-      "${System.getProperty("user.home")}/.m2/repository/org/robolectric/android-all-instrumented/11-robolectric-6757853-i7"
-    ),
+    providers.gradleProperty("identitySdkDirectory")
+      .orElse(providers.provider { identitySdk.singleFile.parentFile.absolutePath })
+      .get(),
   )
   jvmArgs(
     "--add-opens=java.base/java.lang=ALL-UNNAMED",
